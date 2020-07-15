@@ -129,25 +129,21 @@ if '__main__' == __name__:
     print('******************************************')
     new_item = []       # [[10329,{'system.cpu.num': 32.0,'system.cpu.num': 32.0,...}],[10329,{'system.cpu.num': 32.0,'system.cpu.num': 32.0,...}]]
     for items in result:
-        item2 = []
+        item2 = [items[0][1]]
         for item in items:
-            item2.append(item[1])
-            item1 = {}  # {'system.cpu.num': 32.0,'system.cpu.num': 32.0}
             for item_va in item_values:
                 if item[0] == item_va[0]:
-                    item1[item[2]] = item_va[1]
-                    item2.append(item1)    # [10329,{'system.cpu.num': 32.0,'system.cpu.num': 32.0}]
+                    item2.append(item_va[1])    # [10329,{'system.cpu.num': 32.0,'system.cpu.num': 32.0}]
         new_item.append(item2)
     print('**********平凑主机id，和监控项以及value**************')
     print(new_item)
     print('******************************************')
     host_value = []
-    for item in new_item:
-        # for ii in item:     # [10329,{'system.cpu.num': 32.0,'system.cpu.num': 32.0}]
+    for item in new_item:       # [[10084, 0.626006944444444, 0.6233125000000006, 0.6236666666666679, 32.0, 1.8407107423611133],...]
         for host in hosts:      # [(10084, 'wode069', 0), (10325, 'wode007', 0), (10326, 'wode174', 0), ...]
             if item[0] == host[0]:
-                item.append(host[1])
-                item.append(host[2])
+                item[0] = host[2]
+                item.insert(0, host[1])
         host_value.append(item)
 
     print(host_value)

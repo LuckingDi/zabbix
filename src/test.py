@@ -59,11 +59,8 @@ new_item = []
 for items in result:
     item2 = [items[0][1]]
     for item in items: # {'system.cpu.num': 32.0,'system.cpu.num': 32.0}
-
-        item1 = {}
         for item_va in item_values:
             if item[0] == item_va[0]:
-                item1[item[2]] = item_va[1]
-                item2.append(item1)    # [10329,{'system.cpu.num': 32.0,'system.cpu.num': 32.0}]
+                item2.append(item_va[1])    # [10329,{'system.cpu.num': 32.0,'system.cpu.num': 32.0}]
     new_item.append(item2)
 print(new_item)
