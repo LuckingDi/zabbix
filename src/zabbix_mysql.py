@@ -1,5 +1,12 @@
 import pymysql
 import time
+import xlwt
+import smtplib
+from email.mime.text import MIMEText
+from email.header import Header
+from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
+
 
 db = pymysql.connect(host='123.196.116.236', user='root', passwd='Wode@0227', database='zabbix',
                      port=10001, charset='utf8')
@@ -66,19 +73,10 @@ def get_item_id(hosts):
     return all_item_id
 
 
-# 时间转换为时间戳
-def type_time(data_time):
-    # 转换为时间数组
-    time_array = time.strptime(data_time, "%Y-%m-%d %H:%M:%S")
-    # 转换为时间戳
-    timestamp = int(time.mktime(time_array))
-    return timestamp
-
-
 # 获取监控值
-def get_item_value(item_ids, time_from, time_till):
-    t_from = type_time(time_from)
-    t_till = type_time(time_till)
+def get_item_value(item_ids, day):
+    t_till = int(time.time())
+    t_from = t_till - (86400*day)
     item_values = []
     for item_id in item_ids:
         try:
@@ -105,29 +103,126 @@ def get_item_value(item_ids, time_from, time_till):
     return item_values  # [(31044, 32.0), (31073, 2.9307576826388937)]
 
 
+# 创建excel表格
+def create_excel(host_values):
+    # 创建excel对象
+    wb = xlwt.Workbook(encoding='utf-8')
+    # 括号内参数为表名
+    ws = wb.add_sheet('whd')
+    # 参数1：行数
+    # 参数2：列数 从0开始计数
+    # 参数3：值   即单元格的内容
+    ws.write(0, 0, label='序号')
+    ws.write(0, 1, label='主机名')
+    ws.write(0, 2, label='是否启用')
+    ws.write(0, 3, label='15分钟内平均负载')
+    ws.write(0, 4, label='1分钟内平均负载')
+    ws.write(0, 5, label='5分钟内平均负载')
+    ws.write(0, 6, label='cpu总核数')
+    ws.write(0, 7, label='内存利用率')
+    ws.write(0, 8, label='内存总数')
+    ws.write(0, 9, label='CPU利用率')
+    ws.write(0, 10, label='sda磁盘读请求平均等待时间')
+    ws.write(0, 11, label='sda磁盘写请求平均等待时间')
+    ws.write(0, 12, label='sda利用率')
+    ws.write(0, 13, label='sdb磁盘读请求平均等待时间')
+    ws.write(0, 14, label='sdb磁盘写请求平均等待时间')
+    ws.write(0, 15, label='sdb利用率')
+    ws.write(0, 16, label='sdc磁盘读请求平均等待时间')
+    ws.write(0, 17, label='sdc磁盘写请求平均等待时间')
+    ws.write(0, 18, label='sdc利用率')
+    ws.write(0, 19, label='sdd磁盘读请求平均等待时间')
+    ws.write(0, 20, label='sdd磁盘写请求平均等待时间')
+    ws.write(0, 21, label='sdd利用率')
+
+    ws.write(1, 0, label=1)
+    ws.write(1, 1, label=host_values[0][0])
+    ws.write(1, 2, label=host_values[0][1])
+    ws.write(1, 3, label=host_values[0][4])
+    ws.write(1, 4, label=host_values[0][3])
+    ws.write(1, 5, label=host_values[0][5])
+    ws.write(1, 6, label=host_values[0][2])
+    ws.write(1, 7, label=str(host_values[0][6])+'%')
+    ws.write(1, 8, label=str(int(host_values[0][7] / 1073741824)) + 'G')
+    ws.write(1, 9, label=str(host_values[0][8])+'%')
+    ws.write(1, 10, label=host_values[0][9])
+    ws.write(1, 11, label=host_values[0][10])
+    ws.write(1, 12, label=host_values[0][11])
+    i = 2
+    for value in host_values[1:]:
+        a = len(value)
+        ws.write(i, 0, label=i)
+        num = 1
+        num2 = 0
+        while num <= a:
+            if num2 == 6:
+                ws.write(i, num, label=str(value[num2]) + '%')
+            elif num2 == 8:
+                ws.write(i, num, label=str(value[num2]) + '%')
+            elif num2 == 7:
+                ws.write(i, num, label=str(int((value[num2] / 1073741824)+1)) + 'G')
+            else:
+                ws.write(i, num, label=value[num2])
+            num += 1
+            num2 += 1
+        i += 1
+    ti = time.strftime('%Y-%m-%d', time.localtime())
+    excel_name = ti+'服务器使用情况周报.xls'
+    wb.save('C:/Users/蓝色/Desktop/'+excel_name)
+    return excel_name
+
+
+# 发送邮件
+def from_mail(excel_name):
+    t_till = time.strftime('%Y-%m-%d', time.localtime())
+
+    sender = 'it@wordemotion.com'
+    receiver = ['wanghaodong@wordemotion.com', 'hahada@aliyun.com']
+    # receiver = 'wanghaodong@wordemotion.com'
+
+    smtpserver = 'smtp.exmail.qq.com'
+    username = 'it@wordemotion.com'
+    password = 'Azq123!@#'
+    mail_title = t_till + '日服务器报告'
+
+    # 创建附件的实例
+    message = MIMEMultipart()
+    message['From'] = sender
+    message['To'] = Header(','.join(receiver))
+    message['Subject'] = Header(mail_title, 'utf-8')
+
+    # 邮件正文内容
+    message.attach(MIMEText('各位好:\r\r\t\t此封邮件为程序自动发出，目的是获取本周服务器的各项数据重要并发送给各位，以供各位了解这周服务器的使用情况，详情请查看附件!\r\r'
+                            '\t\t附件中，第二项为主机名，第三项为是否启用（0为已启用），\r'
+                            '\t\t第四项/第五项/第六项：为最近15、1、5分钟内机器运行进程队列中的平均进程数量，此值根据cpu核数而定，\r'
+                            '\t\t不超过cpu总核数为有空闲（正常保持在cpu总核数的70%），如果此值等于CPU总核数为满载情况，如果超过CPU总核数则表示此机器负超过机器承受的范围，需要优化。\r'
+                            '\t\t第7项为该机器CPU的总核数，第八项为此机器的内存利用率(百分比值)，第九项为机器的内存总量，第十项为机器的CPU利用率(百分比值)\n'
+                            '\t\t后面几项都是机器上磁盘的读写速率，利用率等，作为参考数据，不作为重要数据（单位为：毫秒(ms)）。\r\r'
+                            '\t\t请注意：附件中的值是我取本周所有时间点值的平均值，想要得知服务器使用详情，请登录：server.wordemotion.com', ))
+    # 构造附件
+    att = MIMEApplication(open('C:/Users/蓝色/Desktop/'+excel_name, 'rb').read())
+    att["Content-Type"] = 'application/octet-stream'
+    att.add_header('Content-Disposition', 'attachment', filename=excel_name)
+    message.attach(att)
+
+    smtpObj = smtplib.SMTP_SSL(host=smtpserver)
+    smtpObj.connect(host=smtpserver, port=465)
+    smtpObj.login(username, password)
+    smtpObj.sendmail(sender, receiver, message.as_string())
+    smtpObj.quit()
+    retrun_message = "邮件发送成功"
+    return retrun_message
+
 # 测试
 if '__main__' == __name__:
-    hosts = get_host_id()       # [(10084, 'wode069', 0), (10325, 'wode007', 0), (10326, 'wode174', 0), ...]
-    print('************获取hosts************')
-    print(hosts)
-    print('*********************************')
-    # hosts = [10329,10330]
+    hosts = get_host_id()
     result = get_item_id(hosts)
-    print('************获取result************')
-    print(result)
-    print('*********************************')
     item_ids = []
     for dicts in result:
         for i in dicts:
             item_ids.append(i[0])
-    print('**************获取监控项id*****************')
-    print(item_ids)
-    print('******************************************')
-    item_values = get_item_value(item_ids, '2020-07-14 00:00:00', '2020-07-15 00:00:00')    # [(31044, 32.0), (31073, 2.9307576826388937)]
-    print('**************获取监控项id以及值*****************')
-    print(item_values)  # [(29174, 0.626006944444444), (29170, 0.6233125000000006), (29175, 0.6236666666666679), (29161, 32.0), (29200, 1.8407107423611133)]
-    print('******************************************')
-    new_item = []       # [[10329,{'system.cpu.num': 32.0,'system.cpu.num': 32.0,...}],[10329,{'system.cpu.num': 32.0,'system.cpu.num': 32.0,...}]]
+    item_values = get_item_value(item_ids, day=1)    # [(31044, 32.0), (31073, 2.9307576826388937)]
+    new_item = []
     for items in result:
         item2 = [items[0][1]]
         for item in items:
@@ -135,15 +230,16 @@ if '__main__' == __name__:
                 if item[0] == item_va[0]:
                     item2.append(item_va[1])    # [10329,{'system.cpu.num': 32.0,'system.cpu.num': 32.0}]
         new_item.append(item2)
-    print('**********平凑主机id，和监控项以及value**************')
-    print(new_item)
-    print('******************************************')
     host_value = []
-    for item in new_item:       # [[10084, 0.626006944444444, 0.6233125000000006, 0.6236666666666679, 32.0, 1.8407107423611133],...]
-        for host in hosts:      # [(10084, 'wode069', 0), (10325, 'wode007', 0), (10326, 'wode174', 0), ...]
+    for item in new_item:
+        for host in hosts:
             if item[0] == host[0]:
                 item[0] = host[2]
                 item.insert(0, host[1])
         host_value.append(item)
-
+    print('**********************最后的数据结果**********************')
     print(host_value)
+    print('*********************************************************')
+    excel_name = create_excel(host_value)
+    return_message = from_mail(excel_name)
+    print(return_message)
