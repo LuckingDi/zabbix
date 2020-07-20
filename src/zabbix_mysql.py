@@ -8,11 +8,11 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 
 
-db = pymysql.connect(host='123.196.116.236', user='root', passwd='Wode@0227', database='zabbix',
-                     port=10001, charset='utf8')
+db = pymysql.connect(host='127.0.0.1', user='root', passwd='', database='zabbix',
+                     port=3306, charset='utf8')
 
 
-# 获取主机id [(10084, 'wode069', 0), (10325, 'wode007', 0), (10326, 'wode174', 0), ...]
+# 获取主机id 
 def get_host_id():
     hosts = []
     try:
@@ -84,7 +84,7 @@ def get_item_value(item_ids, day):
             sql2 = 'select itemid,clock,value from history where {0}>clock and clock>{1} and itemid={2} '
             sql = sql2.format(t_till, t_from, item_id)
             cursor.execute(sql)
-            results = cursor.fetchall()     # ((31303, 1594656703, 15.595506), (31303, 1594656763, 16.100756), ...)
+            results = cursor.fetchall()
             if len(results) == 0:
                 sql3 = 'select itemid,clock,value from history_uint where {0}>clock and clock>{1} and itemid={2} '
                 sql0 = sql3.format(t_till, t_from, item_id)
@@ -100,7 +100,7 @@ def get_item_value(item_ids, day):
         except Exception:
             print(item_id+"获取监控值错误")
     db.close()
-    return item_values  # [(31044, 32.0), (31073, 2.9307576826388937)]
+    return item_values
 
 
 # 创建excel表格
@@ -167,22 +167,21 @@ def create_excel(host_values):
             num2 += 1
         i += 1
     ti = time.strftime('%Y-%m-%d', time.localtime())
-    excel_name = ti+'服务器使用情况周报.xls'
-    wb.save('C:/Users/蓝色/Desktop/'+excel_name)
-    return excel_name
+    excel_name = ti+'服务器使用情况日报.xls'
+    wb.save('/root/log/'+excel_name)
+    return excel_name,ti
 
 
 # 发送邮件
 def from_mail(excel_name):
     t_till = time.strftime('%Y-%m-%d', time.localtime())
 
-    sender = 'it@wordemotion.com'
-    receiver = ['wanghaodong@wordemotion.com', 'hahada@aliyun.com']
-    # receiver = 'wanghaodong@wordemotion.com'
+    sender = ''     # 发送邮件账号
+    receiver = ['', '']     # 接受邮件账号
 
-    smtpserver = 'smtp.exmail.qq.com'
-    username = 'it@wordemotion.com'
-    password = 'Azq123!@#'
+    smtpserver = ''     # 服务器地址
+    username = ''       # 发送邮件账号
+    password = ''       # 账号密码
     mail_title = t_till + '日服务器报告'
 
     # 创建附件的实例
@@ -198,9 +197,9 @@ def from_mail(excel_name):
                             '\t\t不超过cpu总核数为有空闲（正常保持在cpu总核数的70%），如果此值等于CPU总核数为满载情况，如果超过CPU总核数则表示此机器负超过机器承受的范围，需要优化。\r'
                             '\t\t第7项为该机器CPU的总核数，第八项为此机器的内存利用率(百分比值)，第九项为机器的内存总量，第十项为机器的CPU利用率(百分比值)\n'
                             '\t\t后面几项都是机器上磁盘的读写速率，利用率等，作为参考数据，不作为重要数据（单位为：毫秒(ms)）。\r\r'
-                            '\t\t请注意：附件中的值是我取本周所有时间点值的平均值，想要得知服务器使用详情，请登录：server.wordemotion.com', ))
+                            '\t\t请注意：附件中的值是我取本周所有时间点值的平均值，想要得知服务器使用详情，请登录：', ))
     # 构造附件
-    att = MIMEApplication(open('C:/Users/蓝色/Desktop/'+excel_name, 'rb').read())
+    att = MIMEApplication(open('/root/log/'+excel_name, 'rb').read())
     att["Content-Type"] = 'application/octet-stream'
     att.add_header('Content-Disposition', 'attachment', filename=excel_name)
     message.attach(att)
@@ -212,6 +211,7 @@ def from_mail(excel_name):
     smtpObj.quit()
     retrun_message = "邮件发送成功"
     return retrun_message
+
 
 # 测试
 if '__main__' == __name__:
@@ -237,9 +237,7 @@ if '__main__' == __name__:
                 item[0] = host[2]
                 item.insert(0, host[1])
         host_value.append(item)
-    print('**********************最后的数据结果**********************')
-    print(host_value)
-    print('*********************************************************')
-    excel_name = create_excel(host_value)
+    excel_name,ti = create_excel(host_value)
     return_message = from_mail(excel_name)
-    print(return_message)
+
+    print(ti+return_message)
